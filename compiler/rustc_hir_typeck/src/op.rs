@@ -759,23 +759,14 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             },
         );
 
-        let method = trait_did.and_then(|trait_did| {
-            self.lookup_method_in_trait(cause.clone(), opname, trait_did, lhs_ty, Some(input_types))
-        });
-
-        match (method, trait_did) {
-            (Some(ok), _) => {
-                let method = self.register_infer_ok_obligations(ok);
-                self.select_obligations_where_possible(|_| {});
-                Ok(method)
-            }
-            (None, None) => Err(vec![]),
-            (None, Some(trait_did)) => {
-                let (obligation, _) =
-                    self.obligation_for_method(cause, trait_did, lhs_ty, Some(input_types));
-                Err(rustc_trait_selection::traits::fully_solve_obligation(self, obligation))
-            }
-        }
+        let Some(trait_did) = trait_did else { return Err(vec![]); };
+        self.lookup_method_in_trait_full(
+            cause.clone(),
+            opname,
+            trait_did,
+            lhs_ty,
+            Some(input_types),
+        )
     }
 }
 

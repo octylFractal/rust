@@ -502,6 +502,27 @@ fn construct_fn<'tcx>(
         );
     }
 
+    if tcx
+        .hir()
+        .attrs(fn_id)
+        .iter()
+        .find(|attr| attr.name_or_empty() == sym::derived_clone)
+        .is_some()
+    {
+        return clone::build_clone_mir(
+            tcx,
+            fn_def.did.to_def_id(),
+            fn_id,
+            body_id.hir_id,
+            thir,
+            expr,
+            arguments,
+            return_ty,
+            return_ty_span,
+            span_with_body,
+        );
+    }
+
     let infcx = tcx.infer_ctxt().build();
     let mut builder = Builder::new(
         thir,
@@ -1046,6 +1067,7 @@ pub(crate) fn parse_float_into_scalar(
 
 mod block;
 mod cfg;
+mod clone;
 mod custom;
 mod expr;
 mod matches;

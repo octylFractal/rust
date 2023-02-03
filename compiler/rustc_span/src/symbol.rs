@@ -606,6 +606,7 @@ symbols! {
         derive,
         derive_const,
         derive_default_enum,
+        derived_clone,
         destruct,
         destructuring_assignment,
         diagnostic,

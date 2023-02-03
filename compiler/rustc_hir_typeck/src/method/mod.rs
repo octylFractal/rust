@@ -18,6 +18,7 @@ use rustc_hir as hir;
 use rustc_hir::def::{CtorOf, DefKind, Namespace};
 use rustc_hir::def_id::DefId;
 use rustc_infer::infer::{self, InferOk};
+use rustc_infer::traits::FulfillmentError;
 use rustc_middle::traits::ObligationCause;
 use rustc_middle::ty::subst::{InternalSubsts, SubstsRef};
 use rustc_middle::ty::{self, GenericParamDefKind, Ty, TypeVisitable};
@@ -349,6 +350,36 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let (obligation, substs) =
             self.obligation_for_method(cause, trait_def_id, self_ty, opt_input_types);
         self.construct_obligation_for_trait(m_name, trait_def_id, obligation, substs)
+    }
+
+    pub fn lookup_method_in_trait_full(
+        &self,
+        cause: ObligationCause<'tcx>,
+        m_name: Ident,
+        trait_def_id: DefId,
+        self_ty: Ty<'tcx>,
+        opt_input_types: Option<&[Ty<'tcx>]>,
+    ) -> Result<MethodCallee<'tcx>, Vec<FulfillmentError<'tcx>>> {
+        let method = self.lookup_method_in_trait(
+            cause.clone(),
+            m_name,
+            trait_def_id,
+            self_ty,
+            opt_input_types,
+        );
+
+        match method {
+            Some(ok) => {
+                let method = self.register_infer_ok_obligations(ok);
+                self.select_obligations_where_possible(|_| {});
+                Ok(method)
+            }
+            None => {
+                let (obligation, _) =
+                    self.obligation_for_method(cause, trait_def_id, self_ty, opt_input_types);
+                Err(rustc_trait_selection::traits::fully_solve_obligation(self, obligation))
+            }
+        }
     }
 
     // FIXME(#18741): it seems likely that we can consolidate some of this

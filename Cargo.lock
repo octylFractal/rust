@@ -4400,6 +4400,7 @@ dependencies = [
  "rustc_data_structures",
  "rustc_errors",
  "rustc_hir",
+ "rustc_hir_typeck",
  "rustc_index",
  "rustc_infer",
  "rustc_macros",

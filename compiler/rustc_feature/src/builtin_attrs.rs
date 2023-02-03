@@ -771,6 +771,9 @@ pub const BUILTIN_ATTRIBUTES: &[BuiltinAttribute] = &[
         definition of a trait, it's currently in experimental form and should be changed before \
         being exposed outside of the std"
     ),
+    ungated!(
+        derived_clone, Normal, template!(Word), WarnFollowing
+    ),
 
     // ==========================================================================
     // Internal attributes, Testing:
