@@ -1,6 +1,8 @@
 use crate::deriving::generic::ty::*;
 use crate::deriving::generic::*;
 use crate::deriving::path_std;
+use rustc_ast::ast;
+use rustc_ast::Generics;
 use rustc_ast::{ItemKind, MetaItem};
 use rustc_expand::base::{Annotatable, ExtCtxt};
 use rustc_span::symbol::sym;
@@ -34,9 +36,18 @@ pub fn expand_deriving_clone(
         // FIXME: make this somehow pass type-checks but compile error if not replaced in MIR stage?
         BlockOrExpr::new_expr(cx.expr_deref(s, cx.expr_self(s)))
     }));
+    let mut is_copy_guaranteed = false;
     match item {
         Annotatable::Item(annitem) => match &annitem.kind {
-            ItemKind::Struct(..) | ItemKind::Enum(..) => {
+            ItemKind::Struct(_, Generics { params, .. })
+            | ItemKind::Enum(_, Generics { params, .. }) => {
+                let container_id = cx.current_expansion.id.expn_data().parent.expect_local();
+                let has_derive_copy = cx.resolver.has_derive_copy(container_id);
+                is_copy_guaranteed = has_derive_copy
+                    && !params
+                        .iter()
+                        .any(|param| matches!(param.kind, ast::GenericParamKind::Type { .. }));
+
                 bounds = vec![];
             }
             ItemKind::Union(..) => {
@@ -48,7 +59,14 @@ pub fn expand_deriving_clone(
         _ => cx.span_bug(span, "`#[derive(Clone)]` on trait item or impl item"),
     }
 
-    let attrs = thin_vec![cx.attr_word(sym::inline, span), cx.attr_word(sym::derived_clone, span)];
+    let derived_clone_attr = if is_copy_guaranteed {
+        // Tell the MIR builder that we are for-sure Copy.
+        cx.attr_nested_word(sym::derived_clone, sym::copy, span)
+    } else {
+        cx.attr_word(sym::derived_clone, span)
+    };
+
+    let attrs = thin_vec![cx.attr_word(sym::inline, span), derived_clone_attr];
     let trait_def = TraitDef {
         span,
         path: path_std!(clone::Clone),

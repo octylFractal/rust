@@ -21,13 +21,9 @@ LL | #[derive(PartialEq)]
 error[E0277]: the trait bound `NoCloneOrEq: Clone` is not satisfied
   --> $DIR/deriving-no-inner-impl-error-message.rs:9:5
    |
-LL | #[derive(Clone)]
-   |          ----- in this derive macro expansion
-LL | struct C {
 LL |     x: NoCloneOrEq
-   |     ^^^^^^^^^^^^^^ the trait `Clone` is not implemented for `NoCloneOrEq`
+   |     ^ the trait `Clone` is not implemented for `NoCloneOrEq`
    |
-   = note: this error originates in the derive macro `Clone` (in Nightly builds, run with -Z macro-backtrace for more info)
 help: consider annotating `NoCloneOrEq` with `#[derive(Clone)]`
    |
 LL | #[derive(Clone)]

@@ -208,6 +208,9 @@ pub struct TypeckResults<'tcx> {
     /// Contains the data for evaluating the effect of feature `capture_disjoint_fields`
     /// on closure size.
     pub closure_size_eval: FxHashMap<LocalDefId, ClosureSizeProfileData<'tcx>>,
+
+    /// Cached results of `clone` fn lookups for derived `Clone` impls.
+    pub clone_fns: FxHashMap<LocalDefId, DefId>,
 }
 
 /// Whenever a value may be live across a generator yield, the type of that value winds up in the
@@ -280,6 +283,7 @@ impl<'tcx> TypeckResults<'tcx> {
             generator_interior_predicates: Default::default(),
             treat_byte_string_as_slice: Default::default(),
             closure_size_eval: Default::default(),
+            clone_fns: Default::default(),
         }
     }
 

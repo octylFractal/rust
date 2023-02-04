@@ -502,24 +502,19 @@ fn construct_fn<'tcx>(
         );
     }
 
-    if tcx
-        .hir()
-        .attrs(fn_id)
-        .iter()
-        .find(|attr| attr.name_or_empty() == sym::derived_clone)
-        .is_some()
+    if let Some(derived_clone_attr) =
+        tcx.hir().attrs(fn_id).iter().find(|attr| attr.name_or_empty() == sym::derived_clone)
     {
         return clone::build_clone_mir(
             tcx,
-            fn_def.did.to_def_id(),
+            fn_def,
             fn_id,
             body_id.hir_id,
-            thir,
-            expr,
             arguments,
             return_ty,
             return_ty_span,
             span_with_body,
+            derived_clone_attr,
         );
     }
 

@@ -1308,6 +1308,11 @@ rustc_queries! {
         desc { "computing whether `{}` is `Copy`", env.value }
         remap_env_constness
     }
+    /// Query backing `Ty::is_copy_considering_regions`
+    query is_copy_considering_regions_raw(env: ty::ParamEnvAnd<'tcx, Ty<'tcx>>) -> bool {
+        desc { "computing whether `{}` is `Copy` considering regions", env.value }
+        remap_env_constness
+    }
     /// Query backing `Ty::is_sized`.
     query is_sized_raw(env: ty::ParamEnvAnd<'tcx, Ty<'tcx>>) -> bool {
         desc { "computing whether `{}` is `Sized`", env.value }

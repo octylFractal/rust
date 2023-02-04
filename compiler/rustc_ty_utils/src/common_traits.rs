@@ -33,12 +33,37 @@ fn is_item_raw<'tcx>(
     traits::type_known_to_meet_bound_modulo_regions(&infcx, param_env, ty, trait_def_id, DUMMY_SP)
 }
 
+fn is_copy_considering_regions_raw<'tcx>(
+    tcx: TyCtxt<'tcx>,
+    query: ty::ParamEnvAnd<'tcx, Ty<'tcx>>,
+) -> bool {
+    is_item_considering_regions_raw(tcx, query, LangItem::Copy)
+}
+
+fn is_item_considering_regions_raw<'tcx>(
+    tcx: TyCtxt<'tcx>,
+    query: ty::ParamEnvAnd<'tcx, Ty<'tcx>>,
+    item: LangItem,
+) -> bool {
+    let (param_env, ty) = query.into_parts();
+    let trait_def_id = tcx.require_lang_item(item, None);
+    let infcx = tcx.infer_ctxt().build();
+    traits::type_known_to_meet_bound_considering_regions(
+        &infcx,
+        param_env,
+        ty,
+        trait_def_id,
+        DUMMY_SP,
+    )
+}
+
 pub(crate) fn provide(providers: &mut ty::query::Providers) {
     *providers = ty::query::Providers {
         is_copy_raw,
         is_sized_raw,
         is_freeze_raw,
         is_unpin_raw,
+        is_copy_considering_regions_raw,
         ..*providers
     };
 }

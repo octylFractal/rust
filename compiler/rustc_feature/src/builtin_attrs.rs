@@ -772,7 +772,7 @@ pub const BUILTIN_ATTRIBUTES: &[BuiltinAttribute] = &[
         being exposed outside of the std"
     ),
     ungated!(
-        derived_clone, Normal, template!(Word), WarnFollowing
+        derived_clone, Normal, template!(Word, List: "copy"), WarnFollowing
     ),
 
     // ==========================================================================

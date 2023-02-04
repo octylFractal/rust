@@ -2370,6 +2370,7 @@ fn check_invalid_crate_level_attr(tcx: TyCtxt<'_>, attrs: &[Attribute]) {
         sym::test_case,
         sym::global_allocator,
         sym::bench,
+        sym::derived_clone,
     ];
 
     for attr in attrs {

@@ -137,6 +137,17 @@ pub fn type_known_to_meet_bound_modulo_regions<'tcx>(
     pred_known_to_hold_modulo_regions(infcx, param_env, trait_ref.without_const(), span)
 }
 
+pub fn type_known_to_meet_bound_considering_regions<'tcx>(
+    infcx: &InferCtxt<'tcx>,
+    param_env: ty::ParamEnv<'tcx>,
+    ty: Ty<'tcx>,
+    def_id: DefId,
+    span: Span,
+) -> bool {
+    let trait_ref = ty::Binder::dummy(infcx.tcx.mk_trait_ref(def_id, [ty]));
+    pred_known_to_hold_considering_regions(infcx, param_env, trait_ref.without_const(), span)
+}
+
 #[instrument(level = "debug", skip(infcx, param_env, span, pred), ret)]
 fn pred_known_to_hold_modulo_regions<'tcx>(
     infcx: &InferCtxt<'tcx>,
@@ -181,6 +192,28 @@ fn pred_known_to_hold_modulo_regions<'tcx>(
     } else {
         result
     }
+}
+
+#[instrument(level = "debug", skip(infcx, param_env, span, pred), ret)]
+fn pred_known_to_hold_considering_regions<'tcx>(
+    infcx: &InferCtxt<'tcx>,
+    param_env: ty::ParamEnv<'tcx>,
+    pred: impl ToPredicate<'tcx> + TypeVisitable<'tcx>,
+    span: Span,
+) -> bool {
+    let obligation = Obligation {
+        param_env,
+        // We can use a dummy node-id here because we won't pay any mind
+        // to region obligations that arise (there shouldn't really be any
+        // anyhow).
+        cause: ObligationCause::misc(span, CRATE_DEF_ID),
+        recursion_depth: 0,
+        predicate: pred.to_predicate(infcx.tcx),
+    };
+
+    let result = infcx.predicate_must_hold_considering_regions(&obligation);
+    debug!(?result);
+    result
 }
 
 #[instrument(level = "debug", skip(tcx, elaborated_env))]

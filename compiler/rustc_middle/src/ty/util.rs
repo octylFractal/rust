@@ -917,6 +917,15 @@ impl<'tcx> Ty<'tcx> {
         self.is_trivially_pure_clone_copy() || tcx.is_copy_raw(param_env.and(self))
     }
 
+    pub fn is_copy_considering_regions(
+        self,
+        tcx: TyCtxt<'tcx>,
+        param_env: ty::ParamEnv<'tcx>,
+    ) -> bool {
+        self.is_trivially_pure_clone_copy()
+            || tcx.is_copy_considering_regions_raw(param_env.and(self))
+    }
+
     /// Checks whether values of this type `T` have a size known at
     /// compile time (i.e., whether `T: Sized`). Lifetimes are ignored
     /// for the purposes of this check, so it can be an

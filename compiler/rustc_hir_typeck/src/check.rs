@@ -12,10 +12,14 @@ use rustc_hir::lang_items::LangItem;
 use rustc_hir_analysis::check::fn_maybe_err;
 use rustc_infer::infer::type_variable::{TypeVariableOrigin, TypeVariableOriginKind};
 use rustc_infer::infer::RegionVariableOrigin;
+use rustc_infer::traits::{Obligation, ObligationCauseCode};
 use rustc_middle::ty::{self, Binder, Ty, TyCtxt};
 use rustc_span::def_id::LocalDefId;
+use rustc_span::sym;
+use rustc_span::symbol::Ident;
 use rustc_target::spec::abi::Abi;
 use rustc_trait_selection::traits;
+use rustc_trait_selection::traits::error_reporting::TypeErrCtxtExt;
 use std::cell::RefCell;
 
 /// Helper used for fns and closures. Does the grungy work of checking a function
@@ -177,6 +181,11 @@ pub(super) fn check_fn<'a, 'tcx>(
         check_panic_info_fn(tcx, panic_impl_did.expect_local(), fn_sig, decl, declared_ret_ty);
     }
 
+    // Check fields of Self for `#[derived_clone]` function
+    if tcx.has_attr(fn_def_id.to_def_id(), sym::derived_clone) {
+        check_derived_clone_fn(tcx, fcx, fn_def_id, fn_sig, decl, declared_ret_ty, body.id());
+    }
+
     if let Some(lang_start_defid) = tcx.lang_items().start_fn() && lang_start_defid == fn_def_id.to_def_id() {
         check_lang_start_fn(tcx, fn_sig, decl, fn_def_id);
     }
@@ -234,6 +243,69 @@ fn check_panic_info_fn(
     if generic_counts.consts != 0 {
         let span = tcx.def_span(fn_id);
         tcx.sess.span_err(span, "should have no const parameters");
+    }
+}
+
+fn check_derived_clone_fn<'tcx>(
+    tcx: TyCtxt<'tcx>,
+    fcx: &mut FnCtxt<'_, 'tcx>,
+    fn_id: LocalDefId,
+    _fn_sig: ty::FnSig<'tcx>,
+    _decl: &'tcx hir::FnDecl<'tcx>,
+    declared_ret_ty: Ty<'tcx>,
+    body_id: hir::BodyId,
+) {
+    let Some(clone_did) = tcx.lang_items().clone_trait() else {
+        return;
+    };
+    let span = tcx.def_span(fn_id);
+    // For now, just field checks. Realistically we'll need a bunch of checks to ensure that
+    // if a user tries to use this, it's only used in legal ways (inside Clone, on clone function, auto-derived)
+    let (adt, substs) = match declared_ret_ty.kind() {
+        ty::Adt(adt, substs) => (adt, substs),
+        _ => {
+            tcx.sess.span_err(span, "return type should be an ADT");
+            return;
+        }
+    };
+    for variant in adt.variants() {
+        for field in &variant.fields {
+            let field_span = tcx.def_ident_span(field.did).unwrap_or(span);
+            let field_ty = tcx.erase_regions(fcx.field_ty(field_span, field, substs));
+            match fcx.lookup_method_in_trait_full(
+                fcx.cause(field_span, ObligationCauseCode::MiscObligation),
+                Ident::with_dummy_span(sym::clone),
+                clone_did,
+                field_ty,
+                None,
+            ) {
+                Ok(method) => {
+                    fcx.typeck_results
+                        .borrow_mut()
+                        .clone_fns
+                        .insert(field.did.expect_local(), method.def_id);
+                }
+                Err(e) => {
+                    fcx.err_ctxt().report_fulfillment_errors(&e, Some(body_id));
+                }
+            }
+        }
+    }
+    // if it's a union, also require that `Self: Copy`
+    if adt.is_union() {
+        let cause = fcx.cause(span, ObligationCauseCode::MiscObligation);
+        let Some(copy_trait) = tcx.lang_items().copy_trait() else {
+            return;
+        };
+        let copy_trait_ref = tcx.mk_trait_ref(copy_trait, [declared_ret_ty]);
+        let copy_predicate = tcx.mk_predicate(Binder::dummy(ty::PredicateKind::Clause(
+            ty::Clause::Trait(ty::TraitPredicate {
+                trait_ref: copy_trait_ref,
+                constness: ty::BoundConstness::NotConst,
+                polarity: ty::ImplPolarity::Positive,
+            }),
+        )));
+        fcx.register_predicate(Obligation::new(tcx, cause, fcx.param_env, copy_predicate));
     }
 }
 

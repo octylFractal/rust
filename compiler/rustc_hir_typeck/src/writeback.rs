@@ -71,6 +71,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         wbcx.visit_user_provided_tys();
         wbcx.visit_user_provided_sigs();
         wbcx.visit_generator_interior_types();
+        wbcx.visit_clone_fns();
 
         wbcx.typeck_results.rvalue_scopes =
             mem::take(&mut self.typeck_results.borrow_mut().rvalue_scopes);
@@ -549,6 +550,12 @@ impl<'cx, 'tcx> WritebackCx<'cx, 'tcx> {
             let predicates = self.resolve(predicates.clone(), &self.fcx.tcx.def_span(expr_def_id));
             self.typeck_results.generator_interior_predicates.insert(expr_def_id, predicates);
         }
+    }
+
+    fn visit_clone_fns(&mut self) {
+        let fcx_typeck_results = self.fcx.typeck_results.borrow();
+        assert_eq!(fcx_typeck_results.hir_owner, self.typeck_results.hir_owner);
+        self.typeck_results.clone_fns = fcx_typeck_results.clone_fns.clone();
     }
 
     #[instrument(skip(self), level = "debug")]
